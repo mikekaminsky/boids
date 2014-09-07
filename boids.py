@@ -44,6 +44,16 @@ class Boid:
     def change_velocity(self, newv_array):
         self.state[2:] = newv_array
 
+    def choose_velocity(self, flock_state, distance):
+
+        nears = nearest(distance, self.neighbors)
+
+        vecs = np.asarray([flock_state[:, 2:][i] for i in nears])
+        xvec = reduce(lambda x, y: x + y, vecs[:,0]) / len(vecs[:,0])
+        yvec = reduce(lambda x, y: x + y, vecs[:,1]) / len(vecs[:,1])
+
+        self.change_velocity([xvec, yvec])
+        self.move_boid()
 
 class Flock:
     """
@@ -62,14 +72,7 @@ class Flock:
         self.flock_distance = squareform(pdist(self.flock_state[:, :2]))
 
         for id, boid in enumerate(self.flock):
-            nears = nearest(self.flock_distance[id], boid.neighbors)
-
-            vecs = np.asarray([self.flock_state[:, 2:][i] for i in nears])
-            xvec = reduce(lambda x, y: x + y, vecs[:,0]) / len(vecs[:,0])
-            yvec = reduce(lambda x, y: x + y, vecs[:,1]) / len(vecs[:,1])
-
-            boid.change_velocity([xvec, yvec])
-            boid.move_boid()
+            boid.choose_velocity(self.flock_state, self.flock_distance[id])
             self.flock[id] = boid
 
         self.flock_state = np.array([i.state for i in self.flock])
@@ -79,35 +82,31 @@ class BoidBox:
     Some stuff here
     """
     def __init__(self,
-                 flock,
+                 size,
                  bounds = [-2, 2, -2, 2],
-                 dt = 1. / 30 
-                 ):
+                 dt = 1. / 30 ):
 
-    def step(self, dt):
-        self.time_elapsed += dt
-        self.flock.change_flights()
+        self.flock = Flock(size)
+        self.bounds = bounds
 
 
-    # Check for boundary crossing
-    crossed_x1 = (flock.flock_state[:, 0] < self.bounds[0] + self.size)
-    crossed_x2 = (flock.flock_state[:, 0] > self.bounds[1] - self.size)
-    crossed_y1 = (flock.flock_state[:, 1] < self.bounds[2] + self.size)
-    crossed_y2 = (flock.flock_state[:, 1] > self.bounds[3] - self.size)
+        def step(self, dt):
+            self.time_elapsed += dt
+            flock.change_flights()
 
-    #Shoot them out the other side
-    flock.flock_state[crossed_x1, 0] = self.bounds[0] + self.size
-    flock.flock_state[crossed_x2, 0] = self.bounds[1] - self.size
-    flock.flock_state[crossed_y1, 1] = self.bounds[2] + self.size
-    flock.flock_state[crossed_y2, 1] = self.bounds[3] - self.size
+            # Check for boundary crossing
+            crossed_x1 = (self.flock.flock_state[:, 0] < self.bounds[0])
+            crossed_x2 = (self.flock.flock_state[:, 0] > self.bounds[1])
+            crossed_y1 = (self.flock.flock_state[:, 1] < self.bounds[2])
+            crossed_y2 = (self.flock.flock_state[:, 1] > self.bounds[3])
 
-    flock.flock_state[crossed_x1 | crossed_x2, 0] *= -1
-    flock.flock_state[crossed_y1 | crossed_y2, 1] *= -1
-    flock.flock_state[crossed_x1 | crossed_x2, 2] *= 5
-    flock.flock_state[crossed_y1 | crossed_y2, 3] *= 5
+            #Shoot them out the other side
+            self.flock.flock_state[crossed_x1, 0] = self.bounds[0]
+            self.flock.flock_state[crossed_x2, 0] = self.bounds[1]
+            self.flock.flock_state[crossed_y1, 1] = self.bounds[2]
+            self.flock.flock_state[crossed_y2, 1] = self.bounds[3]
 
-
-
-
+            self.flock.flock_state[crossed_x1 | crossed_x2, 0] *= -1
+            self.flock.flock_state[crossed_y1 | crossed_y2, 1] *= -1
 
 
